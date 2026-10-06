@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "boilerplate",
+  "name": "bd-mortgage-fun",
   "compatibility_date": "2026-08-19",
   "compatibility_flags": ["nodejs_compat"],
   "main": "src/server.ts",
@@ -8,7 +8,7 @@
   "d1_databases": [
     {
       "binding": "DB",
-      "database_name": "boilerplate",
+      "database_name": "bd-mortgage-fun",
       // Filled in by `wrangler d1 create` (the setup-cloudflare skill does it).
       // Local development ignores the value.
       "database_id": "local",
@@ -16,14 +16,14 @@
     }
   ],
   "env": {
-    // The Worker every pull request preview hangs off (`boilerplate-staging`).
+    // The Worker every pull request preview hangs off (`bd-mortgage-fun-staging`).
     // Previews never touch production. See README "Pull request previews".
     "staging": {
       "preview_urls": true,
       "d1_databases": [
         {
           "binding": "DB",
-          "database_name": "boilerplate-staging",
+          "database_name": "bd-mortgage-fun-staging",
           // Filled in by the setup-previews skill.
           "database_id": "local",
           "migrations_dir": "../../packages/db/migrations"

@@ -1,4 +1,4 @@
-# Boilerplate
+# Bd Mortgage Fun
 
 A [TanStack Start](https://tanstack.com/start) app deployed on Cloudflare Workers, with [Hono](https://hono.dev) as the top-level `fetch` handler and [Cloudflare D1](https://developers.cloudflare.com/d1/) for data.
 
@@ -48,7 +48,7 @@ The database needs no configuration for local work.
 The local database only exists on your machine, so the deployed Worker needs a real D1 database. Create one, put the id it prints into `d1_databases[0].database_id` in `wrangler.jsonc`, and create the tables:
 
 ```bash
-bunx wrangler d1 create boilerplate
+bunx wrangler d1 create bd-mortgage-fun
 bunx wrangler d1 migrations apply DB --remote
 ```
 

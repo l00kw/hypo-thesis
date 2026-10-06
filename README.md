@@ -1,4 +1,4 @@
-# Boilerplate
+# Bd Mortgage Fun
 
 A [Turborepo](https://turborepo.com) monorepo, managed with Bun workspaces.
 
@@ -83,7 +83,7 @@ The local database only exists on your machine, so a deployed Worker needs a rea
 
 ```bash
 cd apps/web
-bunx wrangler d1 create boilerplate
+bunx wrangler d1 create bd-mortgage-fun
 ```
 
 That prints a `database_id`. Put it in the `d1_databases` entry in `apps/web/wrangler.jsonc`, replacing the `"local"` placeholder, then create the tables:
@@ -104,15 +104,15 @@ That builds and runs `wrangler deploy`. The URL is printed at the end; open `/no
 
 ## Pull request previews
 
-Every pull request can get its own copy of the app, on a URL like `https://pr-42-boilerplate-staging.<subdomain>.workers.dev`, with its own empty D1 database that has the PR's migrations applied. Pushing to the PR updates it. Closing or merging the PR deletes the preview and the database. It uses [Cloudflare Worker Previews](https://developers.cloudflare.com/workers/previews/), which is in open beta.
+Every pull request can get its own copy of the app, on a URL like `https://pr-42-bd-mortgage-fun-staging.<subdomain>.workers.dev`, with its own empty D1 database that has the PR's migrations applied. Pushing to the PR updates it. Closing or merging the PR deletes the preview and the database. It uses [Cloudflare Worker Previews](https://developers.cloudflare.com/workers/previews/), which is in open beta.
 
 Previews are off until you set them up: run the `setup-previews` skill (`.claude/skills/setup-previews`), after the Deploy steps above. Until then the workflow skips.
 
 How it fits together:
 
-- `env.staging` in `apps/web/wrangler.jsonc` is a second Worker, `boilerplate-staging`, with its own D1 database. Previews hang off it, never off production.
+- `env.staging` in `apps/web/wrangler.jsonc` is a second Worker, `bd-mortgage-fun-staging`, with its own D1 database. Previews hang off it, never off production.
 - Its `previews` block holds the preview's bindings. A preview inherits none from staging, so anything missing there is `undefined` at runtime. The D1 entry holds placeholders. Never commit a real id there.
-- `.github/workflows/preview.yml` runs on every PR push. It builds with `CLOUDFLARE_ENV=staging`, then `apps/web/scripts/preview.ts deploy` finds or creates the PR's D1 database (`boilerplate-preview-pr-<N>`), applies the migrations, writes the database id into the built config in `dist/server/wrangler.json` and runs `wrangler preview`. The URL goes in a PR comment. On close, `preview.ts delete` removes both.
+- `.github/workflows/preview.yml` runs on every PR push. It builds with `CLOUDFLARE_ENV=staging`, then `apps/web/scripts/preview.ts deploy` finds or creates the PR's D1 database (`bd-mortgage-fun-preview-pr-<N>`), applies the migrations, writes the database id into the built config in `dist/server/wrangler.json` and runs `wrangler preview`. The URL goes in a PR comment. On close, `preview.ts delete` removes both.
 - PRs from forks get no preview, because they cannot read the repo's secrets.
 
 From `apps/web`, by hand:
