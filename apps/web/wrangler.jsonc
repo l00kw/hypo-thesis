@@ -11,7 +11,7 @@
       "database_name": "bd-mortgage-fun",
       // Filled in by `wrangler d1 create` (the setup-cloudflare skill does it).
       // Local development ignores the value.
-      "database_id": "local",
+      "database_id": "fa92d2e9-6303-4cfc-b9cf-59627bf5281d",
       "migrations_dir": "../../packages/db/migrations"
     }
   ],
