@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./mortgage": "./src/mortgage.ts",
     "./notes": "./src/notes.ts"
   },
   "scripts": {

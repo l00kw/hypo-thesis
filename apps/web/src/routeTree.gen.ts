@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as DevLoginRouteImport } from './routes/dev-login'
 import { Route as LoginRouteImport } from './routes/login'
+import { Route as MortgageRouteImport } from './routes/mortgage'
 import { Route as NotesRouteImport } from './routes/notes'
 
 const IndexRoute = IndexRouteImport.update({
@@ -35,6 +36,11 @@ const LoginRoute = LoginRouteImport.update({
   path: '/login',
   getParentRoute: () => rootRouteImport,
 } as any)
+const MortgageRoute = MortgageRouteImport.update({
+  id: '/mortgage',
+  path: '/mortgage',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const NotesRoute = NotesRouteImport.update({
   id: '/notes',
   path: '/notes',
@@ -46,6 +52,7 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/dev-login': typeof DevLoginRoute
   '/login': typeof LoginRoute
+  '/mortgage': typeof MortgageRoute
   '/notes': typeof NotesRoute
 }
 export interface FileRoutesByTo {
@@ -53,6 +60,7 @@ export interface FileRoutesByTo {
   '/about': typeof AboutRoute
   '/dev-login': typeof DevLoginRoute
   '/login': typeof LoginRoute
+  '/mortgage': typeof MortgageRoute
   '/notes': typeof NotesRoute
 }
 export interface FileRoutesById {
@@ -61,14 +69,22 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/dev-login': typeof DevLoginRoute
   '/login': typeof LoginRoute
+  '/mortgage': typeof MortgageRoute
   '/notes': typeof NotesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/about' | '/dev-login' | '/login' | '/notes'
+  fullPaths: '/' | '/about' | '/dev-login' | '/login' | '/mortgage' | '/notes'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/about' | '/dev-login' | '/login' | '/notes'
-  id: '__root__' | '/' | '/about' | '/dev-login' | '/login' | '/notes'
+  to: '/' | '/about' | '/dev-login' | '/login' | '/mortgage' | '/notes'
+  id:
+    | '__root__'
+    | '/'
+    | '/about'
+    | '/dev-login'
+    | '/login'
+    | '/mortgage'
+    | '/notes'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -76,6 +92,7 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   DevLoginRoute: typeof DevLoginRoute
   LoginRoute: typeof LoginRoute
+  MortgageRoute: typeof MortgageRoute
   NotesRoute: typeof NotesRoute
 }
 
@@ -109,6 +126,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof LoginRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/mortgage': {
+      id: '/mortgage'
+      path: '/mortgage'
+      fullPath: '/mortgage'
+      preLoaderRoute: typeof MortgageRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/notes': {
       id: '/notes'
       path: '/notes'
@@ -124,6 +148,7 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   DevLoginRoute: DevLoginRoute,
   LoginRoute: LoginRoute,
+  MortgageRoute: MortgageRoute,
   NotesRoute: NotesRoute,
 }
 export const routeTree = rootRouteImport
