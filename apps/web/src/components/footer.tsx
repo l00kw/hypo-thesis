@@ -7,9 +7,7 @@ export default function Footer() {
   return (
     <footer className="site-footer px-4 pt-10 pb-14 text-muted-foreground">
       <div className="page-wrap flex flex-col items-center justify-between gap-4 text-center sm:flex-row sm:text-left">
-        <p className="m-0 text-sm">
-          &copy; {year} Wendy Look. All rights reserved.
-        </p>
+        <p className="m-0 text-sm">&copy; {year} Wendy Look · MIT License</p>
         <p className="island-kicker m-0">Built with TanStack Start</p>
       </div>
       <Separator className="my-4" />
