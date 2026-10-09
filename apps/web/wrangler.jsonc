@@ -1,6 +1,6 @@
 {
   "$schema": "node_modules/wrangler/config-schema.json",
-  "name": "bd-mortgage-fun",
+  "name": "hypo-thesis",
   "compatibility_date": "2026-08-19",
   "compatibility_flags": ["nodejs_compat"],
   "main": "src/server.ts",
@@ -8,6 +8,8 @@
   "d1_databases": [
     {
       "binding": "DB",
+      // The D1 database was created as "bd-mortgage-fun" before the project
+      // was renamed to hypo-thesis; it keeps that name on Cloudflare.
       "database_name": "bd-mortgage-fun",
       // Filled in by `wrangler d1 create` (the setup-cloudflare skill does it).
       // Local development ignores the value.
@@ -16,14 +18,14 @@
     }
   ],
   "env": {
-    // The Worker every pull request preview hangs off (`bd-mortgage-fun-staging`).
+    // The Worker every pull request preview hangs off (`hypo-thesis-staging`).
     // Previews never touch production. See README "Pull request previews".
     "staging": {
       "preview_urls": true,
       "d1_databases": [
         {
           "binding": "DB",
-          "database_name": "bd-mortgage-fun-staging",
+          "database_name": "hypo-thesis-staging",
           // Filled in by the setup-previews skill.
           "database_id": "local",
           "migrations_dir": "../../packages/db/migrations"

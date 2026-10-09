@@ -13,7 +13,7 @@ export default function Header() {
             to="/"
           >
             <span className="h-2.5 w-2.5 rounded-full bg-primary" />
-            TanStack Start
+            Hypo-Thesis
           </Link>
         </h2>
 
