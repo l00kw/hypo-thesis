@@ -1,5 +1,9 @@
 # Hypo-Thesis
 
+**Live app: https://hypo-thesis.wendyslook.workers.dev** ([mortgage check](https://hypo-thesis.wendyslook.workers.dev/mortgage))
+
+A Swiss mortgage application check, built for Exercise 4 of Claude Build Day Zurich: upload an applicant's seven documents, Claude reads them, the Swiss rule sheet decides (20% equity of which 10% hard, yearly costs at most a third of gross income), and Claude drafts a one-page Kreditantrag for the credit officer to approve or reject. All applicant data is fictional.
+
 `hypo-thesis` is a [Turborepo](https://turborepo.com) monorepo, managed with Bun workspaces.
 
 ## Apps
