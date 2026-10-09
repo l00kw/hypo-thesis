@@ -4,7 +4,7 @@ import {
   Link,
 } from "@tanstack/react-router";
 import type { inferRouterOutputs } from "@trpc/server";
-import { useCallback, useState } from "react";
+import { type ChangeEvent, useCallback, useState } from "react";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
 import {
@@ -20,6 +20,7 @@ import type { AppRouter } from "#/server/trpc/router";
 
 type Outputs = inferRouterOutputs<AppRouter>["mortgage"];
 type Check = Outputs["check"];
+type Analysis = Outputs["analyze"];
 type Costs = Outputs["workedExample"];
 type Outcome = Check["decision"]["outcome"];
 
@@ -72,7 +73,16 @@ const OUTCOME_VARIANT: Record<
 };
 
 function MortgagePage() {
-  const { applicants, check, workedExample } = Route.useLoaderData();
+  const { applicants, check: builtIn, workedExample } = Route.useLoaderData();
+  const [uploaded, setUploaded] = useState<Check | null>(null);
+  const [showUploaded, setShowUploaded] = useState(false);
+  const handleUploaded = useCallback((result: Check) => {
+    setUploaded(result);
+    setShowUploaded(true);
+  }, []);
+  const showBuiltIn = useCallback(() => setShowUploaded(false), []);
+  const showUpload = useCallback(() => setShowUploaded(true), []);
+  const check = showUploaded && uploaded ? uploaded : builtIn;
 
   return (
     <main className="page-wrap px-4 py-12">
@@ -90,14 +100,38 @@ function MortgagePage() {
         </p>
       </section>
 
+      <UploadPanel onResult={handleUploaded} />
+
       <nav aria-label="Applicants" className="mt-8 flex flex-wrap gap-2">
+        {uploaded ? (
+          <Button
+            onClick={showUpload}
+            variant={check === uploaded ? "default" : "outline"}
+          >
+            Uploaded: {uploaded.dossier.application.name}
+            <Badge
+              className="ml-2"
+              variant={OUTCOME_VARIANT[uploaded.decision.outcome]}
+            >
+              {OUTCOME_LABEL[uploaded.decision.outcome]}
+            </Badge>
+          </Button>
+        ) : null}
         {applicants.map((applicant) => (
           <Button
             asChild
             key={applicant.id}
-            variant={applicant.id === check.dossier.id ? "default" : "outline"}
+            variant={
+              check === builtIn && applicant.id === builtIn.dossier.id
+                ? "default"
+                : "outline"
+            }
           >
-            <Link search={{ applicant: applicant.id }} to="/mortgage">
+            <Link
+              onClick={showBuiltIn}
+              search={{ applicant: applicant.id }}
+              to="/mortgage"
+            >
               {applicant.id} {applicant.name}
               <Badge
                 className="ml-2"
@@ -117,10 +151,133 @@ function MortgagePage() {
         <DecisionPanel check={check} />
       </div>
 
-      <KreditantragPanel check={check} key={check.dossier.id} />
+      <KreditantragPanel
+        check={check}
+        key={check === uploaded ? "upload" : check.dossier.id}
+      />
 
       <WorkedExample costs={workedExample} />
     </main>
+  );
+}
+
+// btoa needs a binary string; build it in chunks so large PDFs don't overflow
+// the argument limit of String.fromCharCode.
+const BASE64_CHUNK = 0x80_00;
+
+async function toBase64(file: File): Promise<string> {
+  const bytes = new Uint8Array(await file.arrayBuffer());
+  const parts: string[] = [];
+  for (let start = 0; start < bytes.length; start += BASE64_CHUNK) {
+    parts.push(
+      String.fromCharCode(...bytes.subarray(start, start + BASE64_CHUNK))
+    );
+  }
+  return btoa(parts.join(""));
+}
+
+type UploadState =
+  | { kind: "error"; message: string }
+  | { kind: "idle" }
+  | { kind: "incomplete"; result: Extract<Analysis, { status: "incomplete" }> }
+  | { kind: "reading" };
+
+function UploadPanel({ onResult }: { onResult: (check: Check) => void }) {
+  const [files, setFiles] = useState<File[]>([]);
+  const [state, setState] = useState<UploadState>({ kind: "idle" });
+
+  const handleFiles = useCallback((event: ChangeEvent<HTMLInputElement>) => {
+    setFiles(Array.from(event.target.files ?? []));
+    setState({ kind: "idle" });
+  }, []);
+
+  const handleAnalyze = useCallback(async () => {
+    setState({ kind: "reading" });
+    try {
+      const encoded = await Promise.all(
+        files.map(async (file) => ({
+          data: await toBase64(file),
+          name: file.name,
+        }))
+      );
+      const result = await getTrpc().mortgage.analyze.mutate({
+        files: encoded,
+      });
+      if (result.status === "incomplete") {
+        setState({ kind: "incomplete", result });
+        return;
+      }
+      setState({ kind: "idle" });
+      onResult(result.check);
+    } catch (err) {
+      setState({
+        kind: "error",
+        message:
+          err instanceof Error
+            ? err.message
+            : "The documents could not be read.",
+      });
+    }
+  }, [files, onResult]);
+
+  const reading = state.kind === "reading";
+
+  return (
+    <section className="island-shell mt-8 p-6">
+      <p className="island-kicker mb-2">
+        Steps 1–3: Receive, extract, complete
+      </p>
+      <h2 className="mt-0 mb-2 text-foreground text-xl">Upload a dossier</h2>
+      <p className="mt-0 mb-4 text-muted-foreground text-sm">
+        Select the applicant&apos;s seven PDFs. Claude reads them and copies
+        each document&apos;s numbers; the checks below stay in code.
+      </p>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center">
+        <label className="sr-only" htmlFor="dossier-files">
+          Dossier PDFs
+        </label>
+        <input
+          accept="application/pdf"
+          className="text-sm"
+          disabled={reading}
+          id="dossier-files"
+          multiple
+          onChange={handleFiles}
+          type="file"
+        />
+        <Button
+          disabled={reading || files.length === 0}
+          onClick={handleAnalyze}
+        >
+          {reading
+            ? `Reading ${files.length} document${files.length === 1 ? "" : "s"}…`
+            : "Check documents"}
+        </Button>
+      </div>
+      {reading ? (
+        <p className="mt-3 mb-0 text-muted-foreground text-sm" role="status">
+          Claude is reading the documents. This takes up to a minute.
+        </p>
+      ) : null}
+      {state.kind === "error" ? (
+        <p className="mt-3 mb-0 text-destructive text-sm" role="alert">
+          {state.message}
+        </p>
+      ) : null}
+      {state.kind === "incomplete" ? (
+        <div className="mt-4" role="alert">
+          <p className="m-0 font-semibold text-foreground">
+            The dossier is incomplete. Request these documents from the
+            applicant:
+          </p>
+          <ul className="mt-2 mb-0 pl-5 text-sm">
+            {state.result.missingLabels.map((label) => (
+              <li key={label}>{label}</li>
+            ))}
+          </ul>
+        </div>
+      ) : null}
+    </section>
   );
 }
 

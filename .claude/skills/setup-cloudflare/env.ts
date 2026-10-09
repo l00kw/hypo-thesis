@@ -19,6 +19,7 @@ const DEPLOYED_KEYS: readonly string[] = [
   "CLERK_SECRET_KEY",
   "CLERK_PUBLISHABLE_KEY",
   "VITE_CLERK_PUBLISHABLE_KEY",
+  "ANTHROPIC_API_KEY",
 ];
 
 const DATABASE_ID = /("database_id":\s*)"[^"]*"/;
