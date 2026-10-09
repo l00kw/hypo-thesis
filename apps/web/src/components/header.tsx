@@ -35,25 +35,10 @@ export default function Header() {
           <Link
             activeProps={{ className: "nav-link is-active" }}
             className="nav-link"
-            to="/notes"
-          >
-            Notes
-          </Link>
-          <Link
-            activeProps={{ className: "nav-link is-active" }}
-            className="nav-link"
             to="/mortgage"
           >
             Mortgage
           </Link>
-          <a
-            className="nav-link"
-            href="https://tanstack.com/start/latest/docs/framework/react/overview"
-            rel="noreferrer"
-            target="_blank"
-          >
-            Docs
-          </a>
         </div>
 
         <div className="ml-auto flex items-center gap-1.5 sm:gap-2">
@@ -63,33 +48,12 @@ export default function Header() {
             size="icon"
             variant="ghost"
           >
-            <a href="https://x.com/tan_stack" rel="noreferrer" target="_blank">
-              <span className="sr-only">Follow TanStack on X</span>
-              <svg
-                aria-hidden="true"
-                height="24"
-                viewBox="0 0 16 16"
-                width="24"
-              >
-                <path
-                  d="M12.6 1h2.2L10 6.48 15.64 15h-4.41L7.78 9.82 3.23 15H1l5.14-5.84L.72 1h4.52l3.12 4.73L12.6 1zm-.77 12.67h1.22L4.57 2.26H3.26l8.57 11.41z"
-                  fill="currentColor"
-                />
-              </svg>
-            </a>
-          </Button>
-          <Button
-            asChild
-            className="hidden sm:inline-flex"
-            size="icon"
-            variant="ghost"
-          >
             <a
-              href="https://github.com/TanStack"
+              href="https://github.com/l00kw/hypo-thesis"
               rel="noreferrer"
               target="_blank"
             >
-              <span className="sr-only">Go to TanStack GitHub</span>
+              <span className="sr-only">Hypo-Thesis on GitHub</span>
               <svg
                 aria-hidden="true"
                 height="24"
