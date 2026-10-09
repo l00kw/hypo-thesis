@@ -359,7 +359,7 @@ export interface Kreditantrag {
   title: string;
 }
 
-const OUTCOME_LABEL: Record<Outcome, string> = {
+export const OUTCOME_LABEL: Record<Outcome, string> = {
   approve: "Approve",
   "approve-with-conditions": "Approve with conditions",
   reject: "Reject",

@@ -6,17 +6,22 @@
 // Claude only reads and copies numbers. It does not decide anything: the
 // consistency check, the rule sheet and the decision stay in code, so the
 // result for a dossier is the same whether it was typed in or uploaded.
-import Anthropic from "@anthropic-ai/sdk";
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
 import { checkDossier, type MortgageCheck } from "./mortgage.ts";
+import {
+  FALLBACK_PARAMS,
+  MORTGAGE_MODEL,
+  readParsed,
+  requireClient,
+} from "./mortgage-claude.ts";
 import {
   DOCUMENTS,
   type DocumentKey,
   type Dossier,
 } from "./mortgage-dossiers.ts";
 
-export const EXTRACTION_MODEL = "claude-opus-5-5";
+export const EXTRACTION_MODEL = MORTGAGE_MODEL;
 
 /** Base64 grows a file by a third: this allows PDFs up to about 7.5 MB. */
 const MAX_FILE_BASE64_CHARS = 10_000_000;
@@ -166,9 +171,7 @@ export interface DocumentFile {
 }
 
 export const buildExtractionRequest = (files: DocumentFile[]) => ({
-  betas: ["server-side-fallback-2026-07-01"],
-  // A safety-classifier decline is retried on Anthropic's recommended model.
-  fallbacks: "default" as const,
+  ...FALLBACK_PARAMS,
   max_tokens: 16_000,
   messages: [
     {
@@ -296,25 +299,10 @@ export const createMortgageUploadService = (
 ): MortgageUploadService => ({
   analyze: async (input) => {
     const { files } = analyzeDossierInput.parse(input);
-    if (!apiKey) {
-      throw new Error(
-        "Document upload needs ANTHROPIC_API_KEY, which is not configured on this server."
-      );
-    }
-    const client = new Anthropic({ apiKey });
+    const client = requireClient(apiKey, "Document upload");
     const response = await client.beta.messages.parse(
       buildExtractionRequest(files)
     );
-    if (response.stop_reason === "refusal") {
-      throw new Error(
-        "The documents could not be read: the model declined the request."
-      );
-    }
-    if (response.stop_reason === "max_tokens" || !response.parsed_output) {
-      throw new Error(
-        "The documents could not be read completely. Try again with fewer files."
-      );
-    }
-    return analyzeExtraction(response.parsed_output);
+    return analyzeExtraction(readParsed(response, "Reading the documents"));
   },
 });

@@ -2,6 +2,7 @@
 // extracted by hand from Exercise_4_Mortgage_Data/A{1,2,3}_*/0{1..7}_*.pdf.
 // Values are copied as printed, including where the documents disagree:
 // finding those disagreements is the consistency check's job.
+import { z } from "zod";
 
 /** The register extracts are dated 15.09.2026; ages are taken on that day. */
 export const REFERENCE_DATE = "2026-09-15";
@@ -79,6 +80,82 @@ export interface Dossier {
     taxableAssets: number;
   };
 }
+
+// A dossier sent back by the browser (an uploaded one, for the Kreditantrag
+// draft). The server re-runs every check on it, so this only bounds the shape
+// and sizes; it does not make the values trustworthy.
+const text = (max = 200) => z.string().max(max);
+const amount = z.number().finite();
+const isoDate = z.string().regex(/^\d{4}-\d{2}-\d{2}$/);
+const MAX_DEBT_ENTRIES = 50;
+
+export const dossierSchema = z.object({
+  application: z.object({
+    address: text(),
+    bankAndSavings: amount,
+    birthDate: isoDate,
+    employer: text(),
+    name: text(),
+    occupation: text(),
+    pensionWithdrawal: amount,
+    price: amount,
+    requestedMortgage: amount,
+    securities: amount,
+    statedGrossIncome: amount,
+    statedIncomeNote: text().optional(),
+    totalEquity: amount,
+  }),
+  bankStatement: z.object({
+    asOf: isoDate,
+    privateAccount: amount,
+    savingsAccount: amount,
+    securities: amount,
+    total: amount,
+  }),
+  debtRegister: z.object({
+    asOf: isoDate,
+    entries: z
+      .array(
+        z.object({
+          amount,
+          creditor: text(),
+          date: isoDate,
+          status: text(400),
+        })
+      )
+      .max(MAX_DEBT_ENTRIES),
+    office: text(),
+  }),
+  id: text(20),
+  pension: z.object({
+    fund: text(),
+    insuredSalary: amount,
+    maxWithdrawal: amount,
+    requestedWithdrawal: amount,
+    retirementAssets: amount,
+  }),
+  property: z.object({ address: text(), description: text() }),
+  salaryCertificate: z.object({
+    bonus: amount,
+    employer: text(),
+    grossSalary: amount,
+    netSalary: amount,
+    year: z.number().int(),
+  }),
+  salesDocumentation: z.object({
+    area: text(),
+    builtYear: z.number().int(),
+    price: amount,
+    rooms: z.number(),
+  }),
+  taxReturn: z.object({
+    bankAssets: amount,
+    debts: amount,
+    netSalary: amount,
+    securities: amount,
+    taxableAssets: amount,
+  }),
+}) satisfies z.ZodType<Dossier>;
 
 export const DOSSIERS: readonly Dossier[] = [
   {

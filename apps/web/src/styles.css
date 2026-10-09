@@ -263,3 +263,42 @@ body {
     animation: none;
   }
 }
+
+/* Print / save as PDF on /mortgage: only the Kreditantrag, on one A4 page.
+   Everything that neither is, contains nor sits inside #kreditantrag is
+   removed from the layout (display, not visibility, so it takes no space). */
+@media print {
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+
+  body:has(#kreditantrag)
+    *:not(:has(#kreditantrag)):not(#kreditantrag):not(#kreditantrag *) {
+    display: none !important;
+  }
+
+  body:has(#kreditantrag) *:has(#kreditantrag) {
+    min-height: 0 !important;
+    padding: 0 !important;
+    margin: 0 !important;
+  }
+
+  #kreditantrag {
+    padding: 0 !important;
+    margin: 0 !important;
+    font-size: 10pt;
+    line-height: 1.4;
+    color: #000 !important;
+    background: #fff !important;
+    border: 0 !important;
+    box-shadow: none !important;
+  }
+
+  #kreditantrag p,
+  #kreditantrag h2,
+  #kreditantrag h3 {
+    line-height: 1.4 !important;
+    break-inside: avoid;
+  }
+}

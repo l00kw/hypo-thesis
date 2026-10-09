@@ -21,6 +21,7 @@ import type { AppRouter } from "#/server/trpc/router";
 type Outputs = inferRouterOutputs<AppRouter>["mortgage"];
 type Check = Outputs["check"];
 type Analysis = Outputs["analyze"];
+type Draft = Outputs["draftKreditantrag"];
 type Costs = Outputs["workedExample"];
 type Outcome = Check["decision"]["outcome"];
 
@@ -76,8 +77,12 @@ function MortgagePage() {
   const { applicants, check: builtIn, workedExample } = Route.useLoaderData();
   const [uploaded, setUploaded] = useState<Check | null>(null);
   const [showUploaded, setShowUploaded] = useState(false);
+  // Each upload gets a fresh Kreditantrag panel, so a sign-off or a draft
+  // never carries over from the previous applicant.
+  const [uploadCount, setUploadCount] = useState(0);
   const handleUploaded = useCallback((result: Check) => {
     setUploaded(result);
+    setUploadCount((count) => count + 1);
     setShowUploaded(true);
   }, []);
   const showBuiltIn = useCallback(() => setShowUploaded(false), []);
@@ -153,7 +158,7 @@ function MortgagePage() {
 
       <KreditantragPanel
         check={check}
-        key={check === uploaded ? "upload" : check.dossier.id}
+        key={check === uploaded ? `upload-${uploadCount}` : check.dossier.id}
       />
 
       <WorkedExample costs={workedExample} />
@@ -474,30 +479,54 @@ function DecisionPanel({ check }: { check: Check }) {
 
 type Signoff = "approved" | "pending" | "rejected";
 
-function KreditantragPanel({ check }: { check: Check }) {
-  const { kreditantrag } = check;
-  // Local only: the sign-off is the human step and is not persisted.
-  const [signoff, setSignoff] = useState<Signoff>("pending");
-  const approve = useCallback(() => setSignoff("approved"), []);
-  const reject = useCallback(() => setSignoff("rejected"), []);
-  const reset = useCallback(() => setSignoff("pending"), []);
+const SIGNOFF_LABEL: Record<Exclude<Signoff, "pending">, string> = {
+  approved: "Genehmigt durch Kreditoffizier",
+  rejected: "Abgelehnt durch Kreditoffizier",
+};
 
+type DraftState =
+  | { kind: "drafting" }
+  | { kind: "error"; message: string }
+  | { kind: "none" }
+  | { draft: Draft; kind: "ready" };
+
+const UPLOADED_ID = "UP";
+
+/** The decision as the rules made it, in the Kreditantrag's language. */
+const OUTCOME_LABEL_DE: Record<Outcome, string> = {
+  approve: "Genehmigen",
+  "approve-with-conditions": "Genehmigen mit Auflagen",
+  reject: "Ablehnen",
+};
+
+/** Built-in applicants by id; an upload is sent back and re-checked on the server. */
+function draftInput(check: Check) {
+  return check.dossier.id === UPLOADED_ID
+    ? { dossier: check.dossier }
+    : { id: check.dossier.id };
+}
+
+function swissDate(iso: string): string {
+  const [year, month, day] = iso.split("-");
+  return `${day}.${month}.${year}`;
+}
+
+function printPage() {
+  window.print();
+}
+
+function TemplateOverview({ check }: { check: Check }) {
+  const { kreditantrag } = check;
   return (
-    <section className="island-shell mt-6 p-6 sm:p-8">
-      <p className="island-kicker mb-2">Step 8: Draft Kreditantrag</p>
-      <div className="flex flex-wrap items-baseline justify-between gap-2">
-        <h2 className="m-0 text-2xl text-foreground">{kreditantrag.title}</h2>
-        <span className="text-muted-foreground text-sm">
-          {kreditantrag.date}
-        </span>
-      </div>
-      <div className="mt-4 grid gap-x-8 gap-y-4 md:grid-cols-2">
+    <>
+      <h3 className="mt-6 mb-2 text-base text-foreground">Übersicht</h3>
+      <div className="grid gap-x-8 gap-y-4 md:grid-cols-2 print:grid-cols-2">
         {kreditantrag.sections.map((section) => (
           <div key={section.heading}>
-            <h3 className="mt-0 mb-1 text-base text-foreground">
+            <h4 className="mt-0 mb-1 font-semibold text-foreground text-sm">
               {section.heading}
-            </h3>
-            <dl className="m-0 grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-x-3 gap-y-1 text-sm">
+            </h4>
+            <dl className="m-0 grid grid-cols-[minmax(0,2fr)_minmax(0,3fr)] gap-x-3 gap-y-1 text-xs">
               {section.rows.map((row) => (
                 <div className="contents" key={`${row.label}-${row.value}`}>
                   <dt className="text-muted-foreground">{row.label}</dt>
@@ -508,26 +537,188 @@ function KreditantragPanel({ check }: { check: Check }) {
           </div>
         ))}
       </div>
-      <p className="mt-6 mb-0 text-sm">
-        <strong>Empfehlung:</strong> {kreditantrag.recommendation}
+    </>
+  );
+}
+
+function figureStatus(passed: boolean): string {
+  return passed ? "erfüllt" : "nicht erfüllt";
+}
+
+/** The figures under the AI text: all from the checks, none from Claude. */
+function KeyFigures({ check }: { check: Check }) {
+  const { costs, equity, affordability } = check.assessment;
+  const rows: { label: string; status?: boolean; value: string }[] = [
+    { label: "Kaufpreis", value: chf(costs.price) },
+    {
+      label: "Hypothek (1. / 2.)",
+      value: `${chf(costs.mortgage)} (${chf(costs.firstMortgage)} / ${chf(costs.secondMortgage)})`,
+    },
+    {
+      label: "Eigenmittel ≥ 20%",
+      status: equity.totalEquityPassed,
+      value: `${chf(equity.equity)} (${percent(equity.equityShare)})`,
+    },
+    {
+      label: "davon hart ≥ 10%",
+      status: equity.hardEquityPassed,
+      value: `${chf(equity.hardEquity)} (${percent(equity.hardEquityShare)})`,
+    },
+    { label: "Jahreskosten", value: chf(costs.yearlyCost) },
+    {
+      label: "Bruttolohn (Lohnausweis)",
+      value: chf(affordability.grossIncome),
+    },
+    {
+      label: "Tragbarkeit ≤ 33.3%",
+      status: affordability.passed,
+      value: percent(affordability.costRatio),
+    },
+    { label: "Befunde", value: String(check.findings.length) },
+  ];
+  return (
+    <>
+      <h3 className="mt-5 mb-2 text-base text-foreground">
+        Kennzahlen (aus der Prüfung)
+      </h3>
+      <dl className="m-0 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 text-xs sm:grid-cols-[auto_1fr_auto_1fr] print:grid-cols-[auto_1fr_auto_1fr]">
+        {rows.map((row) => (
+          <div className="contents" key={row.label}>
+            <dt className="text-muted-foreground">{row.label}</dt>
+            <dd className="m-0">
+              {row.value}
+              {row.status === undefined ? null : (
+                <span
+                  className={row.status ? "" : "font-semibold text-destructive"}
+                >
+                  {` · ${figureStatus(row.status)}`}
+                </span>
+              )}
+            </dd>
+          </div>
+        ))}
+      </dl>
+    </>
+  );
+}
+
+function KreditantragPanel({ check }: { check: Check }) {
+  const { kreditantrag } = check;
+  // Local only: the sign-off is the human step and is not persisted.
+  const [signoff, setSignoff] = useState<Signoff>("pending");
+  const approve = useCallback(() => setSignoff("approved"), []);
+  const reject = useCallback(() => setSignoff("rejected"), []);
+  const reset = useCallback(() => setSignoff("pending"), []);
+
+  const [draft, setDraft] = useState<DraftState>({ kind: "none" });
+  const handleDraft = useCallback(async () => {
+    setDraft({ kind: "drafting" });
+    try {
+      const result = await getTrpc().mortgage.draftKreditantrag.mutate(
+        draftInput(check)
+      );
+      setDraft({ draft: result, kind: "ready" });
+    } catch (err) {
+      setDraft({
+        kind: "error",
+        message: err instanceof Error ? err.message : "The draft failed.",
+      });
+    }
+  }, [check]);
+
+  const drafting = draft.kind === "drafting";
+
+  return (
+    <section className="island-shell mt-6 p-6 sm:p-8" id="kreditantrag">
+      <p className="island-kicker mb-2 print:hidden">
+        Step 8: Draft Kreditantrag
+      </p>
+      <div className="flex flex-wrap items-baseline justify-between gap-2">
+        <h2 className="m-0 text-2xl text-foreground">{kreditantrag.title}</h2>
+        <span className="text-muted-foreground text-sm">
+          Stand {swissDate(kreditantrag.date)}
+        </span>
+      </div>
+
+      <div className="mt-4 flex flex-wrap items-center gap-3 print:hidden">
+        <Button disabled={drafting} onClick={handleDraft}>
+          {drafting && "Claude is writing…"}
+          {!drafting && draft.kind === "ready" && "Redraft with Claude"}
+          {!drafting && draft.kind !== "ready" && "Draft with Claude"}
+        </Button>
+        <Button onClick={printPage} variant="outline">
+          Print / save as PDF
+        </Button>
+        <span className="text-muted-foreground text-xs">
+          Claude writes the text; every number in it is filled in from the
+          checks.
+        </span>
+      </div>
+      {draft.kind === "error" ? (
+        <p
+          className="mt-3 mb-0 text-destructive text-sm print:hidden"
+          role="alert"
+        >
+          {draft.message}
+        </p>
+      ) : null}
+
+      {draft.kind === "ready" ? (
+        <div className="mt-5 space-y-3">
+          {draft.draft.sections.map((section) => (
+            <div key={section.heading}>
+              <h3 className="mt-0 mb-1 text-base text-foreground">
+                {section.heading}
+              </h3>
+              <p className="m-0 text-sm leading-6">{section.text}</p>
+            </div>
+          ))}
+        </div>
+      ) : null}
+
+      {draft.kind === "ready" ? (
+        <KeyFigures check={check} />
+      ) : (
+        <TemplateOverview check={check} />
+      )}
+      <p className="mt-4 mb-0 text-sm">
+        <strong>Empfehlung gemäss Prüfung:</strong>{" "}
+        {draft.kind === "ready"
+          ? OUTCOME_LABEL_DE[draft.draft.outcome]
+          : kreditantrag.recommendation}
       </p>
 
       <div className="mt-6 flex flex-wrap items-center gap-3 border-border border-t pt-4">
-        <span className="island-kicker">Step 9: Credit officer</span>
+        <span className="island-kicker print:hidden">
+          Step 9: Credit officer
+        </span>
         {signoff === "pending" ? (
           <>
-            <Button onClick={approve}>Approve</Button>
-            <Button onClick={reject} variant="destructive">
+            <Button className="print:hidden" onClick={approve}>
+              Approve
+            </Button>
+            <Button
+              className="print:hidden"
+              onClick={reject}
+              variant="destructive"
+            >
               Reject
             </Button>
+            <span className="hidden text-sm print:inline">
+              Entscheid Kreditoffizier: ausstehend
+            </span>
           </>
         ) : (
           <>
             <Badge variant={signoff === "approved" ? "default" : "destructive"}>
-              {signoff === "approved" ? "Approved" : "Rejected"} by credit
-              officer
+              {SIGNOFF_LABEL[signoff]}
             </Badge>
-            <Button onClick={reset} size="sm" variant="ghost">
+            <Button
+              className="print:hidden"
+              onClick={reset}
+              size="sm"
+              variant="ghost"
+            >
               Undo
             </Button>
           </>

@@ -5,6 +5,7 @@
   "exports": {
     "./mortgage": "./src/mortgage.ts",
     "./mortgage-extract": "./src/mortgage-extract.ts",
+    "./mortgage-kreditantrag": "./src/mortgage-kreditantrag.ts",
     "./notes": "./src/notes.ts"
   },
   "scripts": {
