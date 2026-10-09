@@ -8,6 +8,7 @@ import {
   DOSSIERS,
   type DocumentKey,
   type Dossier,
+  dossierSchema,
   REFERENCE_DATE,
 } from "./mortgage-dossiers.ts";
 import {
@@ -545,3 +546,23 @@ export const createMortgageService = (): MortgageService => ({
   rules: () => RULES,
   workedExample,
 });
+
+/** A built-in applicant by id, or an uploaded dossier the server re-checks. */
+export const applicantTargetInput = z.union([
+  z.object({ id: z.string().max(20) }),
+  z.object({ dossier: dossierSchema }),
+]);
+
+export type ApplicantTarget = z.output<typeof applicantTargetInput>;
+
+/** Uploaded: never trust a client-sent result, re-run every check here. */
+export const resolveTarget = (target: ApplicantTarget): MortgageCheck => {
+  if ("dossier" in target) {
+    return checkDossier(target.dossier);
+  }
+  const dossier = DOSSIERS.find((candidate) => candidate.id === target.id);
+  if (!dossier) {
+    throw new Error("Unknown applicant.");
+  }
+  return checkDossier(dossier);
+};

@@ -8,7 +8,8 @@ The database layer of the monorepo: a [Drizzle](https://orm.drizzle.team) schema
 | --- | --- | --- |
 | `@repo/db` | the tables, the `Database` type | Server only: it imports drizzle |
 | `@repo/db/notes` | `listNotes`, `createNote` | Server only, called by `@repo/services` |
-| `@repo/db/shared` | `Note` type, `NOTE_TEXT_MAX_LENGTH` | Anywhere, including React components |
+| `@repo/db/credit-decisions` | `listDecisions`, `recordDecision` (append-only credit officer decisions) | Server only, called by `@repo/services` |
+| `@repo/db/shared` | `Note`, `CreditDecision` types, `NOTE_TEXT_MAX_LENGTH`, `DECISION_NOTE_MAX_LENGTH` | Anywhere, including React components |
 
 One entry per module, no barrel file: a new table gets its own `src/<name>.ts` and its own `exports` line in `package.json`. Keep the server/browser split. Importing a drizzle-backed entry from a route component pulls drizzle into the browser bundle. Anything the UI needs goes in `src/shared.ts`.
 

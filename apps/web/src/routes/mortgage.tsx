@@ -3,10 +3,12 @@ import {
   type ErrorComponentProps,
   Link,
 } from "@tanstack/react-router";
+import { TRPCClientError } from "@trpc/client";
 import type { inferRouterOutputs } from "@trpc/server";
-import { type ChangeEvent, useCallback, useState } from "react";
+import { type ChangeEvent, useCallback, useEffect, useState } from "react";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
+import { Input } from "#/components/ui/input";
 import {
   Table,
   TableBody,
@@ -22,6 +24,7 @@ type Outputs = inferRouterOutputs<AppRouter>["mortgage"];
 type Check = Outputs["check"];
 type Analysis = Outputs["analyze"];
 type Draft = Outputs["draftKreditantrag"];
+type Decision = inferRouterOutputs<AppRouter>["decisions"]["record"];
 type Costs = Outputs["workedExample"];
 type Outcome = Check["decision"]["outcome"];
 
@@ -477,9 +480,7 @@ function DecisionPanel({ check }: { check: Check }) {
   );
 }
 
-type Signoff = "approved" | "pending" | "rejected";
-
-const SIGNOFF_LABEL: Record<Exclude<Signoff, "pending">, string> = {
+const DECISION_LABEL: Record<Decision["decision"], string> = {
   approved: "Genehmigt durch Kreditoffizier",
   rejected: "Abgelehnt durch Kreditoffizier",
 };
@@ -604,11 +605,6 @@ function KeyFigures({ check }: { check: Check }) {
 
 function KreditantragPanel({ check }: { check: Check }) {
   const { kreditantrag } = check;
-  // Local only: the sign-off is the human step and is not persisted.
-  const [signoff, setSignoff] = useState<Signoff>("pending");
-  const approve = useCallback(() => setSignoff("approved"), []);
-  const reject = useCallback(() => setSignoff("rejected"), []);
-  const reset = useCallback(() => setSignoff("pending"), []);
 
   const [draft, setDraft] = useState<DraftState>({ kind: "none" });
   const handleDraft = useCallback(async () => {
@@ -688,43 +684,214 @@ function KreditantragPanel({ check }: { check: Check }) {
           : kreditantrag.recommendation}
       </p>
 
-      <div className="mt-6 flex flex-wrap items-center gap-3 border-border border-t pt-4">
-        <span className="island-kicker print:hidden">
-          Step 9: Credit officer
-        </span>
-        {signoff === "pending" ? (
-          <>
-            <Button className="print:hidden" onClick={approve}>
-              Approve
-            </Button>
-            <Button
-              className="print:hidden"
-              onClick={reject}
-              variant="destructive"
-            >
-              Reject
-            </Button>
-            <span className="hidden text-sm print:inline">
-              Entscheid Kreditoffizier: ausstehend
-            </span>
-          </>
-        ) : (
-          <>
-            <Badge variant={signoff === "approved" ? "default" : "destructive"}>
-              {SIGNOFF_LABEL[signoff]}
-            </Badge>
-            <Button
-              className="print:hidden"
-              onClick={reset}
-              size="sm"
-              variant="ghost"
-            >
-              Undo
-            </Button>
-          </>
-        )}
-      </div>
+      <SignOff check={check} />
     </section>
+  );
+}
+
+type SignOffState =
+  | { history: Decision[]; kind: "ready" }
+  | { kind: "error"; message: string }
+  | { kind: "loading" }
+  | { kind: "signed-out" };
+
+const isUnauthorized = (err: unknown): boolean =>
+  err instanceof TRPCClientError && err.data?.code === "UNAUTHORIZED";
+
+// Same output on the Worker and in the browser: the ISO string, trimmed.
+function decisionTime(iso: string): string {
+  const [date = "", time = ""] = iso.split("T");
+  return `${swissDate(date)}, ${time.slice(0, 5)} UTC`;
+}
+
+/** A decision against the rules' proposal: approving a reject, or rejecting an approve. */
+function overrulesRules(decision: Decision): boolean {
+  const rulesApprove = decision.proposedOutcome !== "reject";
+  return (decision.decision === "approved") !== rulesApprove;
+}
+
+function CurrentDecision({ decision }: { decision: Decision | undefined }) {
+  if (!decision) {
+    return <p className="m-0 text-sm">Entscheid Kreditoffizier: ausstehend</p>;
+  }
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      <Badge
+        variant={decision.decision === "approved" ? "default" : "destructive"}
+      >
+        {DECISION_LABEL[decision.decision]}
+      </Badge>
+      <span className="text-muted-foreground text-xs">
+        {decisionTime(decision.createdAt)} ·{" "}
+        {decision.byYou ? "von Ihnen" : "von einem anderen Kreditoffizier"}
+        {overrulesRules(decision) ? " · abweichend von der Empfehlung" : ""}
+      </span>
+      {decision.note ? (
+        <p className="m-0 w-full text-sm">Bemerkung: {decision.note}</p>
+      ) : null}
+    </div>
+  );
+}
+
+function EarlierDecisions({ decisions }: { decisions: Decision[] }) {
+  if (decisions.length === 0) {
+    return null;
+  }
+  return (
+    <details className="mt-3 text-xs print:hidden">
+      <summary className="cursor-pointer text-muted-foreground">
+        Earlier decisions ({decisions.length})
+      </summary>
+      <ul className="mt-2 mb-0 space-y-1 pl-4">
+        {decisions.map((entry) => (
+          <li key={entry.id}>
+            {DECISION_LABEL[entry.decision]} · {decisionTime(entry.createdAt)}
+            {entry.byYou ? " · von Ihnen" : ""}
+            {entry.note ? ` · ${entry.note}` : ""}
+          </li>
+        ))}
+      </ul>
+    </details>
+  );
+}
+
+/** Step 9: the stored decision. Only signed-in users can see or record it. */
+function SignOff({ check }: { check: Check }) {
+  const [state, setState] = useState<SignOffState>({ kind: "loading" });
+  const [note, setNote] = useState("");
+  const [saving, setSaving] = useState(false);
+  const [saveError, setSaveError] = useState<string | null>(null);
+
+  useEffect(() => {
+    let cancelled = false;
+    getTrpc()
+      .decisions.list.query({ target: draftInput(check) })
+      .then((history) => {
+        if (!cancelled) {
+          setState({ history, kind: "ready" });
+        }
+      })
+      .catch((err: unknown) => {
+        if (cancelled) {
+          return;
+        }
+        setState(
+          isUnauthorized(err)
+            ? { kind: "signed-out" }
+            : {
+                kind: "error",
+                message:
+                  err instanceof Error
+                    ? err.message
+                    : "Could not load decisions.",
+              }
+        );
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [check]);
+
+  const decide = useCallback(
+    async (decision: Decision["decision"]) => {
+      setSaving(true);
+      setSaveError(null);
+      try {
+        const stored = await getTrpc().decisions.record.mutate({
+          decision,
+          note: note.trim() || undefined,
+          target: draftInput(check),
+        });
+        setNote("");
+        setState((previous) => ({
+          history: [
+            stored,
+            ...(previous.kind === "ready" ? previous.history : []),
+          ],
+          kind: "ready",
+        }));
+      } catch (err) {
+        if (isUnauthorized(err)) {
+          setState({ kind: "signed-out" });
+        } else {
+          setSaveError(err instanceof Error ? err.message : "Could not save.");
+        }
+      } finally {
+        setSaving(false);
+      }
+    },
+    [check, note]
+  );
+  const approve = useCallback(() => decide("approved"), [decide]);
+  const reject = useCallback(() => decide("rejected"), [decide]);
+  const handleNote = useCallback(
+    (event: ChangeEvent<HTMLInputElement>) => setNote(event.target.value),
+    []
+  );
+
+  const current = state.kind === "ready" ? state.history[0] : undefined;
+  const earlier = state.kind === "ready" ? state.history.slice(1) : [];
+
+  return (
+    <div className="mt-6 border-border border-t pt-4">
+      <p className="island-kicker mb-2 print:hidden">Step 9: Credit officer</p>
+
+      <CurrentDecision decision={current} />
+
+      {state.kind === "loading" ? (
+        <p className="mt-2 mb-0 text-muted-foreground text-xs print:hidden">
+          Loading decisions…
+        </p>
+      ) : null}
+      {state.kind === "error" ? (
+        <p
+          className="mt-2 mb-0 text-destructive text-sm print:hidden"
+          role="alert"
+        >
+          {state.message}
+        </p>
+      ) : null}
+      {state.kind === "signed-out" ? (
+        <p className="mt-2 mb-0 text-sm print:hidden">
+          <Link className="underline" to="/login">
+            Sign in
+          </Link>{" "}
+          to approve or reject. Decisions are stored with who made them.
+        </p>
+      ) : null}
+
+      {state.kind === "ready" ? (
+        <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center print:hidden">
+          <label className="sr-only" htmlFor="decision-note">
+            Note (optional)
+          </label>
+          <Input
+            disabled={saving}
+            id="decision-note"
+            maxLength={500}
+            onChange={handleNote}
+            placeholder="Note (optional)"
+            value={note}
+          />
+          <Button disabled={saving} onClick={approve}>
+            {current ? "Approve instead" : "Approve"}
+          </Button>
+          <Button disabled={saving} onClick={reject} variant="destructive">
+            {current ? "Reject instead" : "Reject"}
+          </Button>
+        </div>
+      ) : null}
+      {saveError ? (
+        <p
+          className="mt-2 mb-0 text-destructive text-sm print:hidden"
+          role="alert"
+        >
+          {saveError}
+        </p>
+      ) : null}
+
+      <EarlierDecisions decisions={earlier} />
+    </div>
   );
 }
 

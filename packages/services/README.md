@@ -7,6 +7,10 @@ The service layer: business rules and input validation, on top of the query func
 | Import | Contents |
 | --- | --- |
 | `@repo/services/notes` | `createNotesService`, `createNoteInput` (zod schema), `NotesService`, `CreateNoteInput` |
+| `@repo/services/mortgage` | The mortgage check (Exercise 4): extraction from a dossier, consistency findings, decision and fixes, template Kreditantrag. Pure, no database |
+| `@repo/services/mortgage-extract` | `createMortgageUploadService(apiKey)`: Claude reads uploaded PDFs, plus the completeness check |
+| `@repo/services/mortgage-kreditantrag` | `createKreditantragWriter(apiKey)`: Claude drafts the Kreditantrag; numbers only via placeholders filled from the checks |
+| `@repo/services/credit-decisions` | `createCreditDecisionsService(db)`: the credit officer's stored, append-only decisions |
 
 One entry per module, no barrel file, same as `@repo/db`. Everything here is server-only: services import drizzle-backed modules.
 
@@ -31,7 +35,7 @@ In the app, `apps/web/src/server/trpc/context.ts` builds the services once per c
 
 - Export the input schema (zod). The tRPC router passes it to `.input()`, and the service parses with it again, so a caller that skips tRPC still gets validated input.
 - Methods are `async`, so a validation error rejects the promise rather than throwing synchronously.
-- Take a `Database` from `@repo/db`. Never read `env`, bindings or the request; the caller passes in what the service needs, including the user id when a rule depends on it.
+- Take a `Database` from `@repo/db` (or, for the Claude-backed mortgage services, the API key). Never read `env`, bindings or the request; the caller passes in what the service needs, including the user id when a rule depends on it.
 - Return the plain JSON shapes from `@repo/db/shared`.
 
 A new service also needs a line in `apps/web/src/server/trpc/context.ts` and in the add-clerk skill's copy of that file (`.claude/skills/add-clerk/templates/apps/web/src/server/trpc/context.ts`).

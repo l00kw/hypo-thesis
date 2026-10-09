@@ -4,6 +4,7 @@
   "type": "module",
   "exports": {
     ".": "./src/schema.ts",
+    "./credit-decisions": "./src/credit-decisions.ts",
     "./notes": "./src/notes.ts",
     "./shared": "./src/shared.ts"
   },

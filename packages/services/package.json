@@ -3,6 +3,7 @@
   "private": true,
   "type": "module",
   "exports": {
+    "./credit-decisions": "./src/credit-decisions.ts",
     "./mortgage": "./src/mortgage.ts",
     "./mortgage-extract": "./src/mortgage-extract.ts",
     "./mortgage-kreditantrag": "./src/mortgage-kreditantrag.ts",

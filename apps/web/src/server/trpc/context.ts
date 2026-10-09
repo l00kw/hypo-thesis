@@ -4,6 +4,7 @@
 import { env } from "cloudflare:workers";
 import { getAuth } from "@clerk/hono";
 import { auth } from "@clerk/tanstack-react-start/server";
+import { createCreditDecisionsService } from "@repo/services/credit-decisions";
 import { createMortgageUploadService } from "@repo/services/mortgage-extract";
 import { createKreditantragWriter } from "@repo/services/mortgage-kreditantrag";
 import { createNotesService } from "@repo/services/notes";
@@ -16,6 +17,7 @@ import type { Context as HonoContext } from "hono";
 // biome-ignore lint/style/useConsistentTypeDefinitions: @hono/trpc-server needs a Record<string, unknown>, which an interface is not
 export type Context = {
   services: {
+    decisions: ReturnType<typeof createCreditDecisionsService>;
     kreditantrag: ReturnType<typeof createKreditantragWriter>;
     mortgageUpload: ReturnType<typeof createMortgageUploadService>;
     notes: ReturnType<typeof createNotesService>;
@@ -28,6 +30,7 @@ const createContext = (bindings: Env, userId: string | null): Context => {
   const db = drizzle(bindings.DB);
   return {
     services: {
+      decisions: createCreditDecisionsService(db),
       // The services never read env: the Worker secret is handed in here.
       kreditantrag: createKreditantragWriter(bindings.ANTHROPIC_API_KEY),
       mortgageUpload: createMortgageUploadService(bindings.ANTHROPIC_API_KEY),

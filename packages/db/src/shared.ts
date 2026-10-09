@@ -13,3 +13,17 @@ export interface Note {
 }
 
 export const NOTE_TEXT_MAX_LENGTH = 280;
+
+/** A credit officer's decision on a mortgage application, as plain JSON. */
+export interface CreditDecision {
+  applicantKey: string;
+  applicantName: string;
+  createdAt: string;
+  decidedBy: string;
+  decision: "approved" | "rejected";
+  id: string;
+  note: string | null;
+  proposedOutcome: "approve" | "approve-with-conditions" | "reject";
+}
+
+export const DECISION_NOTE_MAX_LENGTH = 500;

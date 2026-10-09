@@ -20,3 +20,24 @@ export const notes = sqliteTable("notes", {
   id: integer("id").primaryKey({ autoIncrement: true }),
   text: text("text").notNull(),
 });
+
+/**
+ * The credit officer's sign-off (step 9 of the mortgage check). Append-only:
+ * changing a decision adds a row, so the history is the audit trail and the
+ * newest row per applicant is the current decision.
+ */
+export const creditDecisions = sqliteTable("credit_decisions", {
+  // "A1".."A3" for the built-in applicants, "UP-<hash>" for an uploaded
+  // dossier (a hash of its content, so re-uploading finds its history).
+  applicantKey: text("applicant_key").notNull(),
+  applicantName: text("applicant_name").notNull(),
+  createdAt: text("created_at").notNull(),
+  decidedBy: text("decided_by").notNull(),
+  decision: text("decision", { enum: ["approved", "rejected"] }).notNull(),
+  id: integer("id").primaryKey({ autoIncrement: true }),
+  note: text("note"),
+  // What the rules proposed when the officer decided, recomputed server-side.
+  proposedOutcome: text("proposed_outcome", {
+    enum: ["approve", "approve-with-conditions", "reject"],
+  }).notNull(),
+});

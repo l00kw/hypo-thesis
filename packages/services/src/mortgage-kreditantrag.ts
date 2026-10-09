@@ -8,12 +8,13 @@
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
 import {
-  checkDossier,
+  applicantTargetInput,
   formatChf,
   formatPercent,
   type MortgageCheck,
   OUTCOME_LABEL,
   type Outcome,
+  resolveTarget,
 } from "./mortgage.ts";
 import {
   FALLBACK_PARAMS,
@@ -21,14 +22,9 @@ import {
   readParsed,
   requireClient,
 } from "./mortgage-claude.ts";
-import { DOSSIERS, dossierSchema } from "./mortgage-dossiers.ts";
 import { RULES } from "./mortgage-rules.ts";
 
-/** A built-in applicant by id, or an uploaded dossier the server re-checks. */
-export const draftKreditantragInput = z.union([
-  z.object({ id: z.string().max(20) }),
-  z.object({ dossier: dossierSchema }),
-]);
+export const draftKreditantragInput = applicantTargetInput;
 
 export type DraftKreditantragInput = z.input<typeof draftKreditantragInput>;
 
@@ -225,25 +221,11 @@ export interface KreditantragWriter {
   draft: (input: DraftKreditantragInput) => Promise<KreditantragDraft>;
 }
 
-const resolveCheck = (
-  input: z.output<typeof draftKreditantragInput>
-): MortgageCheck => {
-  if ("dossier" in input) {
-    // Uploaded: never trust a client-sent result, re-run every check here.
-    return checkDossier(input.dossier);
-  }
-  const dossier = DOSSIERS.find((candidate) => candidate.id === input.id);
-  if (!dossier) {
-    throw new Error("Unknown applicant.");
-  }
-  return checkDossier(dossier);
-};
-
 export const createKreditantragWriter = (
   apiKey: string | undefined
 ): KreditantragWriter => ({
   draft: async (input) => {
-    const check = resolveCheck(draftKreditantragInput.parse(input));
+    const check = resolveTarget(draftKreditantragInput.parse(input));
     const client = requireClient(apiKey, "Drafting the Kreditantrag");
     const request = buildDraftRequest(check);
     const facts = buildFacts(check);
