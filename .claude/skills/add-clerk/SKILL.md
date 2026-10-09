@@ -417,10 +417,9 @@ Done means all five hold:
 Report the Clerk app name and id, whether the dev login is on, and the diff.
 Commit only if the user asks. Leave to the user:
 
-- Every notes procedure is still a `publicProcedure`, so anonymous visitors can
-  add notes on a deployed app. Making `notes.create` a `protectedProcedure` (in
-  `apps/web/src/server/trpc/routers/notes.ts`) is a one-word change; ask
-  whether they want it.
+- Any `publicProcedure` that writes to the database lets anonymous visitors
+  write on a deployed app. Check `apps/web/src/server/trpc/routers/` and ask
+  whether such procedures should become `protectedProcedure`.
 - The dev instance also serves the deployed Worker. A production instance is a
   separate `clerk deploy` wizard and needs a custom domain.
 - If the Worker is already deployed, its Clerk secrets go up with the next

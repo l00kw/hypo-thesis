@@ -7,7 +7,7 @@ import { draftKreditantragInput } from "@repo/services/mortgage-kreditantrag";
 import { publicProcedure, router } from "../init.ts";
 
 // The mortgage service is pure (fixture dossiers, no database), so it needs
-// nothing from the context. Thin on purpose, like routers/notes.ts.
+// nothing from the context. Thin on purpose: input schema plus one service call.
 const mortgage = createMortgageService();
 
 export const mortgageRouter = router({

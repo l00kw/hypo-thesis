@@ -84,7 +84,8 @@ gh pr create --fill --draft
 gh pr checks --watch
 ```
 
-Done when the PR has a comment with the preview URL, `<url>/notes` saves a note,
+Done when the PR has a comment with the preview URL, `<url>/api/health` reports
+`"db":"ok"`,
 and after `gh pr close --delete-branch` the cleanup job passes and
 `bun x wrangler --cwd apps/web d1 list` no longer shows
 `<worker>-preview-pr-<N>`.

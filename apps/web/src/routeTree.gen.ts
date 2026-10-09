@@ -13,7 +13,6 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as DevLoginRouteImport } from './routes/dev-login'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as MortgageRouteImport } from './routes/mortgage'
-import { Route as NotesRouteImport } from './routes/notes'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -35,25 +34,18 @@ const MortgageRoute = MortgageRouteImport.update({
   path: '/mortgage',
   getParentRoute: () => rootRouteImport,
 } as any)
-const NotesRoute = NotesRouteImport.update({
-  id: '/notes',
-  path: '/notes',
-  getParentRoute: () => rootRouteImport,
-} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/dev-login': typeof DevLoginRoute
   '/login': typeof LoginRoute
   '/mortgage': typeof MortgageRoute
-  '/notes': typeof NotesRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/dev-login': typeof DevLoginRoute
   '/login': typeof LoginRoute
   '/mortgage': typeof MortgageRoute
-  '/notes': typeof NotesRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -61,14 +53,13 @@ export interface FileRoutesById {
   '/dev-login': typeof DevLoginRoute
   '/login': typeof LoginRoute
   '/mortgage': typeof MortgageRoute
-  '/notes': typeof NotesRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
-  fullPaths: '/' | '/dev-login' | '/login' | '/mortgage' | '/notes'
+  fullPaths: '/' | '/dev-login' | '/login' | '/mortgage'
   fileRoutesByTo: FileRoutesByTo
-  to: '/' | '/dev-login' | '/login' | '/mortgage' | '/notes'
-  id: '__root__' | '/' | '/dev-login' | '/login' | '/mortgage' | '/notes'
+  to: '/' | '/dev-login' | '/login' | '/mortgage'
+  id: '__root__' | '/' | '/dev-login' | '/login' | '/mortgage'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -76,7 +67,6 @@ export interface RootRouteChildren {
   DevLoginRoute: typeof DevLoginRoute
   LoginRoute: typeof LoginRoute
   MortgageRoute: typeof MortgageRoute
-  NotesRoute: typeof NotesRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -109,13 +99,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof MortgageRouteImport
       parentRoute: typeof rootRouteImport
     }
-    '/notes': {
-      id: '/notes'
-      path: '/notes'
-      fullPath: '/notes'
-      preLoaderRoute: typeof NotesRouteImport
-      parentRoute: typeof rootRouteImport
-    }
   }
 }
 
@@ -124,7 +107,6 @@ const rootRouteChildren: RootRouteChildren = {
   DevLoginRoute: DevLoginRoute,
   LoginRoute: LoginRoute,
   MortgageRoute: MortgageRoute,
-  NotesRoute: NotesRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

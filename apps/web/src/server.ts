@@ -11,9 +11,15 @@ const app = new Hono<{ Bindings: Env }>();
 
 app.use("*", clerkMiddleware());
 
-app.get("/api/health", (c) => {
+// Also proves the D1 binding works: deploy checks read `db` here. A raw
+// query, because the health check is the one place that bypasses the services.
+app.get("/api/health", async (c) => {
   const auth = getAuth(c);
-  return c.json({ status: "ok", userId: auth?.userId ?? null });
+  const db = await c.env.DB.prepare("select 1")
+    .first()
+    .then(() => "ok" as const)
+    .catch(() => "error" as const);
+  return c.json({ db, status: "ok", userId: auth?.userId ?? null });
 });
 
 // One-click dev login: mints a one-time Clerk sign-in token for the dev user
