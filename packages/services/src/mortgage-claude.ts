@@ -2,6 +2,7 @@
 // refusal fallback, and turning a response that can't be used into a
 // message the credit officer can act on.
 import Anthropic from "@anthropic-ai/sdk";
+import { UserFacingError } from "./errors.ts";
 
 export const MORTGAGE_MODEL = "claude-opus-5-5";
 
@@ -20,7 +21,7 @@ export const requireClient = (
   feature: string
 ): Anthropic => {
   if (!apiKey) {
-    throw new Error(
+    throw new UserFacingError(
       `${feature} needs ANTHROPIC_API_KEY, which is not configured on this server.`
     );
   }
@@ -34,10 +35,12 @@ interface ParsedResponse<T> {
 
 export const readParsed = <T>(response: ParsedResponse<T>, task: string): T => {
   if (response.stop_reason === "refusal") {
-    throw new Error(`${task} failed: the model declined the request.`);
+    throw new UserFacingError(
+      `${task} failed: the model declined the request.`
+    );
   }
   if (response.stop_reason === "max_tokens" || !response.parsed_output) {
-    throw new Error(`${task} did not complete. Try again.`);
+    throw new UserFacingError(`${task} did not complete. Try again.`);
   }
   return response.parsed_output;
 };

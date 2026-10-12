@@ -4,6 +4,7 @@
   "type": "module",
   "exports": {
     "./credit-decisions": "./src/credit-decisions.ts",
+    "./errors": "./src/errors.ts",
     "./mortgage": "./src/mortgage.ts",
     "./mortgage-extract": "./src/mortgage-extract.ts",
     "./mortgage-kreditantrag": "./src/mortgage-kreditantrag.ts",

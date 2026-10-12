@@ -2,6 +2,7 @@
 // checks, unknown placeholders and stray digits are rejected, and the outcome
 // always comes from the rules. The network call itself is not tested here.
 import { describe, expect, test } from "bun:test";
+import { UserFacingError } from "./errors.ts";
 import { checkDossier } from "./mortgage.ts";
 import { DOSSIERS, type Dossier, dossierSchema } from "./mortgage-dossiers.ts";
 import {
@@ -129,4 +130,10 @@ test("without an API key, drafting explains what is missing", async () => {
   await expect(
     createKreditantragWriter(undefined).draft({ id: "A1" })
   ).rejects.toThrow("ANTHROPIC_API_KEY");
+});
+
+test("the missing-key message is meant for the user, so production shows it", async () => {
+  await expect(
+    createKreditantragWriter(undefined).draft({ id: "A1" })
+  ).rejects.toBeInstanceOf(UserFacingError);
 });

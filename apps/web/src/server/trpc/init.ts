@@ -1,3 +1,4 @@
+import { UserFacingError } from "@repo/services/errors";
 import { initTRPC, TRPCError } from "@trpc/server";
 import type { Context } from "./context.ts";
 
@@ -17,6 +18,11 @@ const t = initTRPC.context<Context>().create({
       if (typeof first?.message === "string") {
         return { ...shape, message: first.message };
       }
+    }
+    // A service error written for the user ("the key is not configured")
+    // keeps its message everywhere.
+    if (cause instanceof UserFacingError) {
+      return { ...shape, message: cause.message };
     }
     // Unexpected errors can carry internals (SQL, binding names). Keep their
     // text in development, hide it in production; server.ts logs it.

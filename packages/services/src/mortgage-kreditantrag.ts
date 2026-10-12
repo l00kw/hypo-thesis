@@ -7,6 +7,7 @@
 // comes from the rules and is handed over, not chosen.
 import { betaZodOutputFormat } from "@anthropic-ai/sdk/helpers/beta/zod";
 import { z } from "zod";
+import { UserFacingError } from "./errors.ts";
 import {
   applicantTargetInput,
   formatChf,
@@ -200,11 +201,13 @@ export const renderDraft = (
       .map((match) => match[1] ?? "")
       .filter((id) => !(id in facts));
     if (unknown.length > 0) {
-      throw new Error(`The draft cites unknown facts: ${unknown.join(", ")}.`);
+      throw new UserFacingError(
+        `The draft cites unknown facts: ${unknown.join(", ")}.`
+      );
     }
     const ownNumber = source.replace(PLACEHOLDER, "").match(DIGIT_CONTEXT);
     if (ownNumber) {
-      throw new Error(
+      throw new UserFacingError(
         `The draft wrote a number that did not come from the checks: "${ownNumber[0].trim()}".`
       );
     }

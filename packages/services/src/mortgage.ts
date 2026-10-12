@@ -3,6 +3,7 @@
 // draft Kreditantrag. The rule sheet decides the numbers (mortgage-rules.ts);
 // the credit officer makes the final call in the UI.
 import { z } from "zod";
+import { UserFacingError } from "./errors.ts";
 import {
   DOCUMENTS,
   DOSSIERS,
@@ -532,7 +533,7 @@ export const createMortgageService = (): MortgageService => ({
     const { id } = mortgageCheckInput.parse(input);
     const dossier = DOSSIERS.find((candidate) => candidate.id === id);
     if (!dossier) {
-      throw new Error("Unknown applicant.");
+      throw new UserFacingError("Unknown applicant.");
     }
     return checkDossier(dossier);
   },
@@ -562,7 +563,7 @@ export const resolveTarget = (target: ApplicantTarget): MortgageCheck => {
   }
   const dossier = DOSSIERS.find((candidate) => candidate.id === target.id);
   if (!dossier) {
-    throw new Error("Unknown applicant.");
+    throw new UserFacingError("Unknown applicant.");
   }
   return checkDossier(dossier);
 };
