@@ -18,6 +18,87 @@ signed-in user.
 - [`packages/db`](packages/db) — `@repo/db`: the Drizzle schema for D1, the generated migrations, and the example `notes` table. See its [README](packages/db/README.md).
 - [`packages/services`](packages/services) — `@repo/services`: the service layer. Business rules and validation, on top of `@repo/db`. The web app calls it through [tRPC](https://trpc.io). See its [README](packages/services/README.md).
 
+## Next steps: the full process
+
+The app covers everything the exercise requires: the worked example, extraction, all three applicants, a fix for each fail, the one-page Kreditantrag and the credit officer's sign-off. The exercise also lists six "Full process" extras that turn the check into something closer to what a bank actually runs. None of them are built yet.
+
+Each extra below says what it is, why it's worth building (what it teaches you), where it goes in the code, and when it's done. You can work through them yourself, or hand this section to a coding agent such as Claude Code one item at a time ("Build next step 1 from the README").
+
+### Ground rules for every step
+
+These keep the app trustworthy as it grows. An agent should follow them without being told twice.
+
+- **The rules decide, Claude reads and writes.** Every number and every pass/fail comes from plain, tested functions in [`packages/services/src/mortgage-rules.ts`](packages/services/src/mortgage-rules.ts). Claude extracts numbers from documents and drafts text, but it never calculates. A credit decision has to be explainable and repeatable, and a function gives the same answer every time.
+- **Don't break what already works.** The worked example (CHF 1,000,000 → 58,889 yearly cost, 176,667 required income) and the three applicants' results (A1 approve at 30.7%, A2 reject on hard equity, A3 reject on affordability with 2 findings) are pinned by tests. Run `bun test` in `packages/services` after every change; those tests must stay green and unchanged.
+- **The sample documents don't contain the new data.** None of the seven PDFs has a bank valuation, a partner, an expected pension or a pillar 3a account. Add the new values as clearly labelled inputs: form fields in the app, plus new fictional test applicants in [`mortgage-dossiers.ts`](packages/services/src/mortgage-dossiers.ts). Never present an invented value as if it came from a document.
+- **Write down every new assumption.** The exercise's rule sheet says "use as given", and the extras go beyond it. Each new rate, limit or age goes into `RULES` with a comment saying what it is and where it comes from (for example a bank's published guidelines). Then a reviewer can check it, and changing it later is one line.
+
+### Suggested order
+
+The order runs from the smallest change to the biggest. Each step reuses something the one before it built.
+
+#### 1. Use the bank's valuation, not just the price
+
+**What:** banks lend on what the property is worth to them, not what the buyer agreed to pay. Add a bank valuation (Verkehrswert) and run every percentage on the lower of the two.
+
+**Why it's worth building:** it's the smallest rule change, so it's a good first lesson in how the rule engine is laid out. It also teaches a real lending idea: if the buyer overpays, the bank treats the difference as extra equity the buyer has to bring, not as a bigger mortgage.
+
+**Where:** `calculateCosts` and `checkEquity` in `mortgage-rules.ts` take a `valuation` alongside `price`. Add a valuation field to the app, and show both numbers in the Kreditantrag ([`mortgage-kreditantrag.ts`](packages/services/src/mortgage-kreditantrag.ts), `buildFacts`).
+
+**Done when:** a test applicant whose valuation is below the price needs more equity than before, with no valuation the result is the same as today, and the old tests still pass.
+
+#### 2. Recalculate affordability at retirement
+
+**What:** a 15-year mortgage often outlives the paycheck. Banks check whether the costs are still at most a third of income once the applicant retires, using the expected pension (state AHV plus pension fund) instead of the salary.
+
+**Why it's worth building:** it teaches you that one applicant can face the same rule at two points in time, with the answer changing in between. The app already uses the retirement age to shorten amortization, so this extends an idea that's already there. It also shows how to report a second check without hiding the first.
+
+**Where:** a new `checkRetirementAffordability` in `mortgage-rules.ts`, called from `assess`. Add an "expected pension" input (the Vorsorgeausweis in a real dossier often projects it), plus a new row in the UI ([`apps/web/src/routes/mortgage.tsx`](apps/web/src/routes/mortgage.tsx)) and in the Kreditantrag.
+
+**Done when:** the app shows a cost ratio for today and one for retirement, a test applicant who passes today but fails at retirement gets "approve with conditions" or "reject" with that reason, and the fix search in `proposeFixes` takes the new check into account.
+
+#### 3. Pension money as equity: withdrawal or pledge
+
+**What:** Swiss buyers can put pension fund money toward a home in two ways. A withdrawal (WEF-Vorbezug) takes the cash out, and it counts as equity but not as hard equity. A pledge (Verpfändung) leaves the money in the fund as extra security for the bank. Let the applicant choose, and show what each choice does.
+
+**Why it's worth building:** it teaches you to model a trade-off rather than a pass/fail. A withdrawal helps the equity check today but lowers the future pension, which feeds back into step 2. A pledge keeps the pension whole, but the mortgage stays bigger. Seeing both side by side is the useful output.
+
+**Where:** `EquityInput` in `mortgage-rules.ts` gets a `pensionUse: "withdrawal" | "pledge"`, along with the amount. The app already extracts the maximum and the requested withdrawal (`pension.maxWithdrawal`, `pension.requestedWithdrawal`), so the inputs are partly there.
+
+**Done when:** the same applicant can be checked both ways, each result says what changed, and a withdrawal larger than `maxWithdrawal` is rejected.
+
+#### 4. Couples: two incomes, two pension funds
+
+**What:** many homes are bought by two people. Combine both incomes and both pension funds, run the consistency check on each person's documents, and flag a debt register entry against either of them.
+
+**Why it's worth building:** this is the biggest change to the data shape, and it teaches you how to grow a data model without breaking the code that depends on it. The `Dossier` type goes from one person to one or more borrowers. Extraction ([`mortgage-extract.ts`](packages/services/src/mortgage-extract.ts)), the consistency check (`checkConsistency` in [`mortgage.ts`](packages/services/src/mortgage.ts)) and the Kreditantrag all have to follow. It also replaces today's rough "co-borrower" fix with a real second applicant.
+
+**Where:** `Dossier` and `dossierSchema` in `mortgage-dossiers.ts` get a list of borrowers, and extraction gets two document sets. For retirement (step 2), use the earlier retirement date of the two.
+
+**Done when:** a single applicant still works exactly as before, a couple's combined income passes where either person alone would fail, and each person's findings are labelled with their name.
+
+#### 5. Direct vs indirect amortization (pillar 3a)
+
+**What:** the second mortgage can be repaid directly (the loan shrinks every year) or indirectly (the yearly amount goes into a pillar 3a account pledged to the bank, and the loan is paid off in one go at the end). Compare the two over the repayment period.
+
+**Why it's worth building:** it teaches you to turn rules into a projection. The affordability check doesn't change, because the yearly amount is the same either way. What changes is the total cost: with indirect amortization the interest stays higher, but 3a payments lower your taxes. It's the first step whose output is advice, not a decision.
+
+**Where:** a new pure function, for example `compareAmortization`, in `mortgage-rules.ts`, returning a year-by-year table for both options. Ask the user for the tax rate and the yearly 3a limit, and put both in `RULES` with their source. The 3a limit changes every year, so don't hard-code it from memory.
+
+**Done when:** the app shows both options with the total interest, the tax saved and the balance at the end, and the worked example's 8,889 per year of amortization shows up as the yearly amount in both.
+
+#### 6. A client chat that explains the decision
+
+**What:** a chat where the applicant asks "why was I rejected?" or "what if I put in CHF 50,000 more?" and gets a plain-language answer.
+
+**Why it's worth building:** it's the hardest step to get right, and it's where the ground rules matter most. It teaches you how to keep a language model honest. Claude gets the finished check as data and explains it. It never works out numbers itself. For "what if" questions, it calls the rule functions as tools and reports what they return. That way the chat can never promise a mortgage the rules would refuse.
+
+**Where:** a new service next to the Kreditantrag writer (`createKreditantragWriter` in `mortgage-kreditantrag.ts` is the pattern to copy). Use the Anthropic SDK with the rule functions as tools, a `protectedProcedure` in [`apps/web/src/server/trpc/routers/mortgage.ts`](apps/web/src/server/trpc/routers/mortgage.ts), and a chat panel in `mortgage.tsx`.
+
+**Needs:** an `ANTHROPIC_API_KEY`. Claude features are switched off on the live demo, so build and try this locally. Before you put it online, keep it behind sign-in and set a spending limit, because every message costs money.
+
+**Done when:** the chat explains each of A1–A3 correctly, a "what if" answer matches the numbers the app shows for the same change, and the chat refuses to change the decision or give numbers it didn't get from a tool.
+
 ## Start a new project
 
 You need [Bun](https://bun.sh) 1.3 or newer and [Claude Code](https://claude.com/claude-code). Deploying also needs a free [Cloudflare](https://dash.cloudflare.com/sign-up) account.
