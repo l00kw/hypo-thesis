@@ -93,6 +93,8 @@ test("only PDFs are accepted", () => {
 
 test("without an API key, analyze explains what is missing", async () => {
   const service = createMortgageUploadService(undefined);
+  expect(service.configured).toBe(false);
+  expect(createMortgageUploadService("sk-test").configured).toBe(true);
   await expect(
     service.analyze({ files: [{ data: "AAAA", name: "a.pdf" }] })
   ).rejects.toThrow("ANTHROPIC_API_KEY");

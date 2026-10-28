@@ -5,6 +5,7 @@ import {
 } from "@tanstack/react-router";
 import { TRPCClientError } from "@trpc/client";
 import type { inferRouterOutputs } from "@trpc/server";
+import { Info } from "lucide-react";
 import { type ChangeEvent, useCallback, useEffect, useState } from "react";
 import { Badge } from "#/components/ui/badge";
 import { Button } from "#/components/ui/button";
@@ -39,12 +40,14 @@ export const Route = createFileRoute("/mortgage")({
   }),
   loader: async ({ deps }) => {
     const trpc = getTrpc();
-    const [applicants, check, workedExample] = await Promise.all([
-      trpc.mortgage.list.query(),
-      trpc.mortgage.check.query({ id: deps.applicant }),
-      trpc.mortgage.workedExample.query(),
-    ]);
-    return { applicants, check, workedExample };
+    const [applicants, check, workedExample, claudeConfigured] =
+      await Promise.all([
+        trpc.mortgage.list.query(),
+        trpc.mortgage.check.query({ id: deps.applicant }),
+        trpc.mortgage.workedExample.query(),
+        trpc.mortgage.claudeConfigured.query(),
+      ]);
+    return { applicants, check, claudeConfigured, workedExample };
   },
   component: MortgagePage,
   errorComponent: MortgageError,
@@ -76,8 +79,50 @@ const OUTCOME_VARIANT: Record<
   reject: "destructive",
 };
 
+// Shown when the server has no ANTHROPIC_API_KEY (the live demo), so the
+// upload and drafting errors read as a choice, not as a broken site.
+function ClaudePausedNote() {
+  return (
+    <aside
+      className="mt-8 flex max-w-3xl gap-3 rounded-lg border border-amber-300 bg-amber-50 px-5 py-4 text-amber-950 dark:border-amber-700/60 dark:bg-amber-950/40 dark:text-amber-100"
+      role="note"
+    >
+      <Info
+        aria-hidden="true"
+        className="mt-0.5 size-5 shrink-0 text-amber-600 dark:text-amber-400"
+      />
+      <div>
+        <p className="m-0 mb-1 font-semibold text-sm">
+          Claude features are paused on this demo
+        </p>
+        <p className="m-0 text-sm leading-6">
+          Uploading PDFs and drafting the Kreditantrag with Claude are switched
+          off here to keep the demo free to run. Everything else works: pick
+          applicant A1, A2 or A3 below to see the extracted numbers, the rule
+          checks, the suggested fixes, the template Kreditantrag and the credit
+          officer&apos;s sign-off.{" "}
+          <a
+            className="font-semibold text-amber-800 underline decoration-2 underline-offset-2 hover:text-amber-950 dark:text-amber-300 dark:hover:text-amber-100"
+            href="https://github.com/l00kw/hypo-thesis"
+            rel="noreferrer"
+            target="_blank"
+          >
+            Run it yourself
+          </a>{" "}
+          with your own API key to try the AI steps.
+        </p>
+      </div>
+    </aside>
+  );
+}
+
 function MortgagePage() {
-  const { applicants, check: builtIn, workedExample } = Route.useLoaderData();
+  const {
+    applicants,
+    check: builtIn,
+    claudeConfigured,
+    workedExample,
+  } = Route.useLoaderData();
   const [uploaded, setUploaded] = useState<Check | null>(null);
   const [showUploaded, setShowUploaded] = useState(false);
   // Each upload gets a fresh Kreditantrag panel, so a sign-off or a draft
@@ -107,6 +152,8 @@ function MortgagePage() {
           off.
         </p>
       </section>
+
+      {claudeConfigured ? null : <ClaudePausedNote />}
 
       <UploadPanel onResult={handleUploaded} />
 

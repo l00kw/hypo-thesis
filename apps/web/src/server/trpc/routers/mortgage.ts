@@ -18,6 +18,10 @@ export const mortgageRouter = router({
   check: publicProcedure
     .input(mortgageCheckInput)
     .query(({ input }) => mortgage.check(input)),
+  /** False when the server has no ANTHROPIC_API_KEY: upload and drafting are paused. */
+  claudeConfigured: publicProcedure.query(
+    ({ ctx }) => ctx.services.mortgageUpload.configured
+  ),
   /** Step 8: Claude writes the Kreditantrag prose; the numbers come from the checks. */
   draftKreditantrag: publicProcedure
     .input(draftKreditantragInput)

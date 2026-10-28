@@ -287,6 +287,8 @@ export const analyzeExtraction = (extracted: Extracted): AnalysisResult => {
 export interface MortgageUploadService {
   /** Reads the PDFs with Claude, then runs the completeness, consistency and rule checks. */
   analyze: (input: AnalyzeDossierInput) => Promise<AnalysisResult>;
+  /** Whether this server has an API key, so the page can say the Claude steps are paused. */
+  configured: boolean;
 }
 
 /**
@@ -305,4 +307,5 @@ export const createMortgageUploadService = (
     );
     return analyzeExtraction(readParsed(response, "Reading the documents"));
   },
+  configured: Boolean(apiKey),
 });
